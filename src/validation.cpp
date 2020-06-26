@@ -1862,7 +1862,7 @@ public:
 
     bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const override
     {
-        return pindex->nHeight >= params.MinBIP9WarningHeight &&
+        return pindex->nHeight >= params.MinVBitsWarningHeight &&
                ((pindex->nVersion & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) &&
                ((pindex->nVersion >> bit) & 1) != 0 &&
                ((ComputeBlockVersion(pindex->pprev, params) >> bit) & 1) == 0;
@@ -3557,7 +3557,7 @@ static bool ContextualCheckBlockHeaderVolatile(const CBlockHeader& block, BlockV
         ThresholdState deployment_state = VersionBitsState(pindexPrev, consensusParams, deployment_pos, versionbitscache);
         if (deployment_state == ThresholdState::MUST_SIGNAL) {
             if ((block.nVersion & VersionBitsMask(consensusParams, deployment_pos)) == 0 || (block.nVersion & VERSIONBITS_TOP_MASK) != VERSIONBITS_TOP_BITS) {
-                BIP9Stats stats = VersionBitsStatistics(pindexPrev, consensusParams, deployment_pos);
+                VBitsStats stats = VersionBitsStatistics(pindexPrev, consensusParams, deployment_pos);
                 if (stats.elapsed == stats.period) {
                     // first block in new period
                     stats.count = stats.elapsed = 0;
@@ -5071,7 +5071,7 @@ ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::D
     return VersionBitsState(::ChainActive().Tip(), params, pos, versionbitscache);
 }
 
-BIP9Stats VersionBitsTipStatistics(const Consensus::Params& params, Consensus::DeploymentPos pos)
+VBitsStats VersionBitsTipStatistics(const Consensus::Params& params, Consensus::DeploymentPos pos)
 {
     LOCK(cs_main);
     return VersionBitsStatistics(::ChainActive().Tip(), params, pos);

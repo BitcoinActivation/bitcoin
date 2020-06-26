@@ -17,7 +17,7 @@ static const int32_t VERSIONBITS_TOP_MASK = 0xE0000000UL;
 /** Total bits available for versionbits */
 static const int32_t VERSIONBITS_NUM_BITS = 29;
 
-/** BIP 9 defines a finite-state-machine to deploy a softfork in multiple stages.
+/** BIP 8 defines a finite-state-machine to deploy a softfork in multiple stages.
  *  State transitions happen during retarget period if conditions are met
  *  In case of reorg, transitions can go backward. Without transition, state is
  *  inherited between periods. All blocks of a period share the same state.
@@ -36,9 +36,9 @@ enum class ThresholdState {
 // will either be nullptr or a block with (height + 1) % Period() == 0.
 typedef std::map<const CBlockIndex*, ThresholdState> ThresholdConditionCache;
 
-/** Display status of an in-progress BIP9 softfork */
-struct BIP9Stats {
-    /** Length of blocks of the BIP9 signalling period */
+/** Display status of an in-progress versionbits softfork */
+struct VBitsStats {
+    /** Length of blocks of the versionbits signalling period */
     int period;
     /** Number of blocks with the version bit set required to activate the softfork */
     int threshold;
@@ -51,7 +51,7 @@ struct BIP9Stats {
 };
 
 /**
- * Abstract class that implements BIP9-style threshold logic, and caches results.
+ * Abstract class that implements versionbits-style threshold logic, and caches results.
  */
 class AbstractThresholdConditionChecker {
 protected:
@@ -63,8 +63,8 @@ protected:
     virtual int Threshold(const Consensus::Params& params) const =0;
 
 public:
-    /** Returns the numerical statistics of an in-progress BIP9 softfork in the current period */
-    BIP9Stats GetStateStatisticsFor(const CBlockIndex* pindex, const Consensus::Params& params) const;
+    /** Returns the numerical statistics of an in-progress versionbits softfork in the current period */
+    VBitsStats GetStateStatisticsFor(const CBlockIndex* pindex, const Consensus::Params& params) const;
     /** Returns the state for pindex A based on parent pindexPrev B. Applies any state transition if conditions are present.
      *  Caches state from first block of period. */
     ThresholdState GetStateFor(const CBlockIndex* pindexPrev, const Consensus::Params& params, ThresholdConditionCache& cache) const;
@@ -72,7 +72,7 @@ public:
     int GetStateSinceHeightFor(const CBlockIndex* pindexPrev, const Consensus::Params& params, ThresholdConditionCache& cache) const;
 };
 
-/** BIP 9 allows multiple softforks to be deployed in parallel. We cache per-period state for every one of them
+/** Versionbits allows multiple softforks to be deployed in parallel. We cache per-period state for every one of them
  *  keyed by the bit position used to signal support. */
 struct VersionBitsCache
 {
@@ -82,7 +82,7 @@ struct VersionBitsCache
 };
 
 ThresholdState VersionBitsState(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos, VersionBitsCache& cache);
-BIP9Stats VersionBitsStatistics(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos);
+VBitsStats VersionBitsStatistics(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos);
 int VersionBitsStateSinceHeight(const CBlockIndex* pindexPrev, const Consensus::Params& params, Consensus::DeploymentPos pos, VersionBitsCache& cache);
 uint32_t VersionBitsMask(const Consensus::Params& params, Consensus::DeploymentPos pos);
 

@@ -51,14 +51,14 @@ public:
 class TestAlwaysActiveConditionChecker : public TestConditionChecker
 {
 public:
-    int64_t StartHeight(const Consensus::Params& params) const override { return Consensus::BIP9Deployment::ALWAYS_ACTIVE; }
+    int64_t StartHeight(const Consensus::Params& params) const override { return Consensus::VBitsDeployment::ALWAYS_ACTIVE; }
 };
 
 class TestNeverActiveConditionChecker : public TestConditionChecker
 {
 public:
-    int64_t StartHeight(const Consensus::Params& params) const override { return Consensus::BIP9Deployment::NEVER_ACTIVE; }
-    int64_t TimeoutHeight(const Consensus::Params& params) const override { return Consensus::BIP9Deployment::NEVER_ACTIVE; }
+    int64_t StartHeight(const Consensus::Params& params) const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
+    int64_t TimeoutHeight(const Consensus::Params& params) const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
 };
 
 #define CHECKERS 6
