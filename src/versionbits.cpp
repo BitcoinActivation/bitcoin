@@ -11,6 +11,7 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex*
     int nThreshold = Threshold(params);
     int64_t height_start = StartHeight(params);
     int64_t height_timeout = TimeoutHeight(params);
+    const bool lockinontimeout = LockinOnTimeout(params);
 
     // Check if this deployment is never active.
     if (height_start == Consensus::BIP9Deployment::NEVER_ACTIVE && height_timeout == Consensus::BIP9Deployment::NEVER_ACTIVE ) {
@@ -76,9 +77,16 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex*
                 }
                 if (count >= nThreshold) {
                     stateNext = ThresholdState::LOCKED_IN;
+                } else if (lockinontimeout && height + nPeriod >= height_timeout) {
+                    stateNext = ThresholdState::MUST_SIGNAL;
                 } else if (height >= height_timeout) {
                     stateNext = ThresholdState::FAILED;
                 }
+                break;
+            }
+            case ThresholdState::MUST_SIGNAL: {
+                // Always progresses into LOCKED_IN.
+                stateNext = ThresholdState::LOCKED_IN;
                 break;
             }
             case ThresholdState::LOCKED_IN: {
@@ -174,6 +182,7 @@ private:
 protected:
     int64_t StartHeight(const Consensus::Params& params) const override { return params.vDeployments[id].startheight; }
     int64_t TimeoutHeight(const Consensus::Params& params) const override { return params.vDeployments[id].timeoutheight; }
+    bool LockinOnTimeout(const Consensus::Params& params) const override { return params.vDeployments[id].lockinontimeout; }
     int Period(const Consensus::Params& params) const override { return params.nMinerConfirmationWindow; }
     int Threshold(const Consensus::Params& params) const override { return params.nRuleChangeActivationThreshold; }
 

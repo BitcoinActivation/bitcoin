@@ -29,6 +29,8 @@ struct BIP9Deployment {
     int64_t startheight;
     /** Timeout/expiry block height for the deployment attempt. Must be a retarget block. */
     int64_t timeoutheight;
+    /** If true, final period before timeout will transition to MUST_SIGNAL. */
+    bool lockinontimeout{false};
 
     /** Constant for timeoutheight very far in the future. */
     static constexpr int64_t NO_TIMEOUT = std::numeric_limits<int64_t>::max();

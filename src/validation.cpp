@@ -1834,7 +1834,7 @@ int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Para
 
     for (int i = 0; i < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; i++) {
         ThresholdState state = VersionBitsState(pindexPrev, params, static_cast<Consensus::DeploymentPos>(i), versionbitscache);
-        if (state == ThresholdState::LOCKED_IN || state == ThresholdState::STARTED) {
+        if (state == ThresholdState::LOCKED_IN || state == ThresholdState::MUST_SIGNAL || state == ThresholdState::STARTED) {
             nVersion |= VersionBitsMask(params, static_cast<Consensus::DeploymentPos>(i));
         }
     }
@@ -1855,6 +1855,7 @@ public:
 
     int64_t StartHeight(const Consensus::Params& params) const override { return 0; }
     int64_t TimeoutHeight(const Consensus::Params& params) const override { return std::numeric_limits<int64_t>::max(); }
+    bool LockinOnTimeout(const Consensus::Params& params) const override { return false; }
     int Period(const Consensus::Params& params) const override { return params.nMinerConfirmationWindow; }
     int Threshold(const Consensus::Params& params) const override { return params.nRuleChangeActivationThreshold; }
 
