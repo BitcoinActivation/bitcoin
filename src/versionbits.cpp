@@ -5,6 +5,85 @@
 #include <versionbits.h>
 #include <consensus/params.h>
 
+template<typename CondFn>
+static ThresholdState BIP8Transitions(ThresholdState prev_state, const CBlockIndex* pindexPrev, int64_t height_start, int64_t height_timeout, bool lockinontimeout, int threshold, int period, CondFn& condition)
+{
+    // We track state by previous-block, so the height we should be comparing is +1
+    assert(pindexPrev != nullptr);
+    const int64_t height = pindexPrev->nHeight + 1;
+
+    switch (prev_state) {
+    case ThresholdState::DEFINED:
+        if (height >= height_start) {
+            return ThresholdState::STARTED;
+        }
+        break;
+
+    case ThresholdState::STARTED: {
+        const CBlockIndex* pindexCount = pindexPrev;
+        int count = 0;
+        for (int i = 0; pindexCount != nullptr && i < period; ++i) {
+            if (condition(pindexCount)) {
+                count++;
+            }
+            pindexCount = pindexCount->pprev;
+        }
+
+        if (count >= threshold) {
+            return ThresholdState::LOCKED_IN;
+        } else if (lockinontimeout && height + period >= height_timeout) {
+            return ThresholdState::MUST_SIGNAL;
+        } else if (height >= height_timeout) {
+            return ThresholdState::FAILED;
+        }
+        break;
+    }
+
+    case ThresholdState::MUST_SIGNAL:
+        // Always progresses into LOCKED_IN.
+        return ThresholdState::LOCKED_IN;
+
+    case ThresholdState::LOCKED_IN:
+        // Always progresses into ACTIVE.
+        return ThresholdState::ACTIVE;
+
+    case ThresholdState::FAILED:
+    case ThresholdState::ACTIVE:
+        // Nothing happens, these are terminal states.
+        break;
+    } // no default case, so the compiler can warn about missing cases
+
+    return prev_state;
+}
+
+static bool BIP8Trivial(ThresholdState& state, const CBlockIndex* pindexPrev, int64_t height_start, int64_t height_timeout, bool lockinontimeout, int threshold, int period)
+{
+    // Check if this deployment is always active.
+    if (height_start == Consensus::VBitsDeployment::ALWAYS_ACTIVE) {
+        state = ThresholdState::ACTIVE;
+        return true;
+    }
+
+    if (pindexPrev == nullptr) {
+        state = ThresholdState::DEFINED;
+        return true;
+    }
+
+    // Check if this deployment is never active.
+    if (height_start == Consensus::VBitsDeployment::NEVER_ACTIVE && height_timeout == Consensus::VBitsDeployment::NEVER_ACTIVE ) {
+        state = ThresholdState::FAILED;
+        return true;
+    }
+
+    if (pindexPrev->nHeight + 1 < height_start) {
+        // Optimization: don't recompute down further, as we know every earlier block will be before the start height
+        state = ThresholdState::DEFINED;
+        return true;
+    }
+
+    return false;
+}
+
 ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex* pindexPrev, ThresholdConditionCache& cache) const
 {
     int nPeriod = Period();
@@ -13,16 +92,6 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex*
     int64_t height_timeout = TimeoutHeight();
     const bool lockinontimeout = LockinOnTimeout();
 
-    // Check if this deployment is never active.
-    if (height_start == Consensus::VBitsDeployment::NEVER_ACTIVE && height_timeout == Consensus::VBitsDeployment::NEVER_ACTIVE ) {
-        return ThresholdState::DEFINED;
-    }
-
-    // Check if this deployment is always active.
-    if (height_start == Consensus::VBitsDeployment::ALWAYS_ACTIVE) {
-        return ThresholdState::ACTIVE;
-    }
-
     // A block's state is always the same as that of the first of its period, so it is computed based on a pindexPrev whose height equals a multiple of nPeriod - 1.
     if (pindexPrev != nullptr) {
         pindexPrev = pindexPrev->GetAncestor(pindexPrev->nHeight - ((pindexPrev->nHeight + 1) % nPeriod));
@@ -30,77 +99,30 @@ ThresholdState AbstractThresholdConditionChecker::GetStateFor(const CBlockIndex*
 
     // Walk backwards in steps of nPeriod to find a pindexPrev whose information is known
     std::vector<const CBlockIndex*> vToCompute;
-    while (cache.count(pindexPrev) == 0) {
-        if (pindexPrev == nullptr) {
-            // The genesis block is by definition defined.
-            cache[pindexPrev] = ThresholdState::DEFINED;
-            break;
-        }
-        if (pindexPrev->nHeight + 1 < height_start) {
-            // Optimization: don't recompute down further, as we know every earlier block will be before the start height
-            cache[pindexPrev] = ThresholdState::DEFINED;
+    ThresholdState state;
+
+    while (!BIP8Trivial(state, pindexPrev, height_start, height_timeout, lockinontimeout, nThreshold, nPeriod)) {
+        assert(pindexPrev != nullptr); // BIP8Trivial handles that case
+        if (cache.count(pindexPrev) > 0) {
+            state = cache[pindexPrev];
             break;
         }
         vToCompute.push_back(pindexPrev);
         pindexPrev = pindexPrev->GetAncestor(pindexPrev->nHeight - nPeriod);
     }
 
-    // At this point, cache[pindexPrev] is known
-    assert(cache.count(pindexPrev));
-    ThresholdState state = cache[pindexPrev];
+    // At this point, state has been initialised either by BIP8Trivial or from
+    // a previously cached value, and vToCompute has the states we need to calculate
+    // and cache
 
     // Now walk forward and compute the state of descendants of pindexPrev
     while (!vToCompute.empty()) {
-        ThresholdState stateNext = state;
         pindexPrev = vToCompute.back();
         vToCompute.pop_back();
 
-        // We track state by previous-block, so the height we should be comparing is +1
-        const int64_t height = pindexPrev->nHeight + 1;
+        auto cond = [this](const CBlockIndex* pindexPrev) { return Condition(pindexPrev); };
 
-        switch (state) {
-            case ThresholdState::DEFINED: {
-                if (height >= height_start) {
-                    stateNext = ThresholdState::STARTED;
-                }
-                break;
-            }
-            case ThresholdState::STARTED: {
-                // We need to count
-                const CBlockIndex* pindexCount = pindexPrev;
-                int count = 0;
-                for (int i = 0; i < nPeriod; i++) {
-                    if (Condition(pindexCount)) {
-                        count++;
-                    }
-                    pindexCount = pindexCount->pprev;
-                }
-                if (count >= nThreshold) {
-                    stateNext = ThresholdState::LOCKED_IN;
-                } else if (lockinontimeout && height + nPeriod >= height_timeout) {
-                    stateNext = ThresholdState::MUST_SIGNAL;
-                } else if (height >= height_timeout) {
-                    stateNext = ThresholdState::FAILED;
-                }
-                break;
-            }
-            case ThresholdState::MUST_SIGNAL: {
-                // Always progresses into LOCKED_IN.
-                stateNext = ThresholdState::LOCKED_IN;
-                break;
-            }
-            case ThresholdState::LOCKED_IN: {
-                // Always progresses into ACTIVE.
-                stateNext = ThresholdState::ACTIVE;
-                break;
-            }
-            case ThresholdState::FAILED:
-            case ThresholdState::ACTIVE: {
-                // Nothing happens, these are terminal states.
-                break;
-            }
-        }
-        cache[pindexPrev] = state = stateNext;
+        cache[pindexPrev] = state = BIP8Transitions(state, pindexPrev, height_start, height_timeout, lockinontimeout, nThreshold, nPeriod, cond);
     }
 
     return state;
