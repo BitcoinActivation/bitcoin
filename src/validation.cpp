@@ -1849,18 +1849,19 @@ int32_t ComputeBlockVersion(const CBlockIndex* pindexPrev, const Consensus::Para
 class WarningBitsConditionChecker : public AbstractThresholdConditionChecker
 {
 private:
+    const Consensus::Params& params;
     int bit;
 
 public:
-    explicit WarningBitsConditionChecker(int bitIn) : bit(bitIn) {}
+    explicit WarningBitsConditionChecker(const Consensus::Params& paramsIn, int bitIn) : params(paramsIn), bit(bitIn) {}
 
-    int64_t StartHeight(const Consensus::Params& params) const override { return 0; }
-    int64_t TimeoutHeight(const Consensus::Params& params) const override { return std::numeric_limits<int64_t>::max(); }
-    bool LockinOnTimeout(const Consensus::Params& params) const override { return false; }
-    int Period(const Consensus::Params& params) const override { return params.nMinerConfirmationWindow; }
-    int Threshold(const Consensus::Params& params) const override { return params.nRuleChangeActivationThreshold; }
+    int64_t StartHeight() const override { return 0; }
+    int64_t TimeoutHeight() const override { return std::numeric_limits<int64_t>::max(); }
+    bool LockinOnTimeout() const override { return false; }
+    int Period() const override { return params.nMinerConfirmationWindow; }
+    int Threshold() const override { return params.nRuleChangeActivationThreshold; }
 
-    bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const override
+    bool Condition(const CBlockIndex* pindex) const override
     {
         return pindex->nHeight >= params.MinVBitsWarningHeight &&
                ((pindex->nVersion & VERSIONBITS_TOP_MASK) == VERSIONBITS_TOP_BITS) &&
@@ -2470,8 +2471,8 @@ static void UpdateTip(CTxMemPool& mempool, const CBlockIndex* pindexNew, const C
     {
         const CBlockIndex* pindex = pindexNew;
         for (int bit = 0; bit < VERSIONBITS_NUM_BITS; bit++) {
-            WarningBitsConditionChecker checker(bit);
-            ThresholdState state = checker.GetStateFor(pindex, chainParams.GetConsensus(), warningcache[bit]);
+            WarningBitsConditionChecker checker(chainParams.GetConsensus(), bit);
+            ThresholdState state = checker.GetStateFor(pindex, warningcache[bit]);
             if (state == ThresholdState::ACTIVE || state == ThresholdState::LOCKED_IN) {
                 const bilingual_str warning = strprintf(_("Warning: unknown new rules activated (versionbit %i)"), bit);
                 if (state == ThresholdState::ACTIVE) {

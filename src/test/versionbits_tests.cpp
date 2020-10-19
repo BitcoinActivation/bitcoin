@@ -27,8 +27,6 @@ static const std::string StateName(ThresholdState state)
     return "";
 }
 
-static const Consensus::Params paramsDummy = Consensus::Params();
-
 class TestConditionChecker : public AbstractThresholdConditionChecker
 {
 private:
@@ -37,28 +35,28 @@ private:
 public:
     bool m_lockinontimeout{false};
 
-    int64_t StartHeight(const Consensus::Params& params) const override { return 100; }
-    int64_t TimeoutHeight(const Consensus::Params& params) const override { return 200; }
-    bool LockinOnTimeout(const Consensus::Params& params) const override { return m_lockinontimeout; }
-    int Period(const Consensus::Params& params) const override { return 10; }
-    int Threshold(const Consensus::Params& params) const override { return 9; }
-    bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const override { return (pindex->nVersion & 0x100); }
+    int64_t StartHeight() const override { return 100; }
+    int64_t TimeoutHeight() const override { return 200; }
+    bool LockinOnTimeout() const override { return m_lockinontimeout; }
+    int Period() const override { return 10; }
+    int Threshold() const override { return 9; }
+    bool Condition(const CBlockIndex* pindex) const override { return (pindex->nVersion & 0x100); }
 
-    ThresholdState GetStateFor(const CBlockIndex* pindexPrev) const { return AbstractThresholdConditionChecker::GetStateFor(pindexPrev, paramsDummy, cache); }
-    int GetStateSinceHeightFor(const CBlockIndex* pindexPrev) const { return AbstractThresholdConditionChecker::GetStateSinceHeightFor(pindexPrev, paramsDummy, cache); }
+    ThresholdState GetStateFor(const CBlockIndex* pindexPrev) const { return AbstractThresholdConditionChecker::GetStateFor(pindexPrev, cache); }
+    int GetStateSinceHeightFor(const CBlockIndex* pindexPrev) const { return AbstractThresholdConditionChecker::GetStateSinceHeightFor(pindexPrev, cache); }
 };
 
 class TestAlwaysActiveConditionChecker : public TestConditionChecker
 {
 public:
-    int64_t StartHeight(const Consensus::Params& params) const override { return Consensus::VBitsDeployment::ALWAYS_ACTIVE; }
+    int64_t StartHeight() const override { return Consensus::VBitsDeployment::ALWAYS_ACTIVE; }
 };
 
 class TestNeverActiveConditionChecker : public TestConditionChecker
 {
 public:
-    int64_t StartHeight(const Consensus::Params& params) const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
-    int64_t TimeoutHeight(const Consensus::Params& params) const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
+    int64_t StartHeight() const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
+    int64_t TimeoutHeight() const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
 };
 
 #define CHECKERS 6
@@ -128,7 +126,7 @@ public:
 
                 // never active may go from DEFINED -> FAILED at the first period
                 const auto never_height = checker_never[i].GetStateSinceHeightFor(vpblock.empty() ? nullptr : vpblock.back());
-                BOOST_CHECK_MESSAGE(never_height == 0 || never_height == checker_never[i].Period(paramsDummy), strprintf("Test %i for StateSinceHeight (never active)", num));
+                BOOST_CHECK_MESSAGE(never_height == 0 || never_height == checker_never[i].Period(), strprintf("Test %i for StateSinceHeight (never active)", num));
             }
         }
         num++;

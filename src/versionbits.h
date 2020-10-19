@@ -55,21 +55,21 @@ struct VBitsStats {
  */
 class AbstractThresholdConditionChecker {
 protected:
-    virtual bool Condition(const CBlockIndex* pindex, const Consensus::Params& params) const =0;
-    virtual int64_t StartHeight(const Consensus::Params& params) const =0;
-    virtual int64_t TimeoutHeight(const Consensus::Params& params) const =0;
-    virtual bool LockinOnTimeout(const Consensus::Params& params) const =0;
-    virtual int Period(const Consensus::Params& params) const =0;
-    virtual int Threshold(const Consensus::Params& params) const =0;
+    virtual bool Condition(const CBlockIndex* pindex) const =0;
+    virtual int64_t StartHeight() const =0;
+    virtual int64_t TimeoutHeight() const =0;
+    virtual bool LockinOnTimeout() const =0;
+    virtual int Period() const =0;
+    virtual int Threshold() const =0;
 
 public:
     /** Returns the numerical statistics of an in-progress versionbits softfork in the current period */
-    VBitsStats GetStateStatisticsFor(const CBlockIndex* pindex, const Consensus::Params& params) const;
+    VBitsStats GetStateStatisticsFor(const CBlockIndex* pindex) const;
     /** Returns the state for pindex A based on parent pindexPrev B. Applies any state transition if conditions are present.
      *  Caches state from first block of period. */
-    ThresholdState GetStateFor(const CBlockIndex* pindexPrev, const Consensus::Params& params, ThresholdConditionCache& cache) const;
+    ThresholdState GetStateFor(const CBlockIndex* pindexPrev, ThresholdConditionCache& cache) const;
     /** Returns the height since when the ThresholdState has started for pindex A based on parent pindexPrev B, all blocks of a period share the same */
-    int GetStateSinceHeightFor(const CBlockIndex* pindexPrev, const Consensus::Params& params, ThresholdConditionCache& cache) const;
+    int GetStateSinceHeightFor(const CBlockIndex* pindexPrev, ThresholdConditionCache& cache) const;
 };
 
 /** Versionbits allows multiple softforks to be deployed in parallel. We cache per-period state for every one of them
