@@ -17,7 +17,7 @@ static ThresholdState BIP8Transitions(ThresholdState prev_state, const CBlockInd
         if (height >= height_start) {
             return ThresholdState::STARTED;
         }
-        break;
+        return ThresholdState::DEFINED;
 
     case ThresholdState::STARTED: {
         const CBlockIndex* pindexCount = pindexPrev;
@@ -36,7 +36,7 @@ static ThresholdState BIP8Transitions(ThresholdState prev_state, const CBlockInd
         } else if (height >= height_timeout) {
             return ThresholdState::FAILED;
         }
-        break;
+        return ThresholdState::STARTED;
     }
 
     case ThresholdState::MUST_SIGNAL:
@@ -47,10 +47,12 @@ static ThresholdState BIP8Transitions(ThresholdState prev_state, const CBlockInd
         // Always progresses into ACTIVE.
         return ThresholdState::ACTIVE;
 
-    case ThresholdState::FAILED:
+    // Terminal states.
     case ThresholdState::ACTIVE:
-        // Nothing happens, these are terminal states.
-        break;
+        return ThresholdState::ACTIVE;
+
+    case ThresholdState::FAILED:
+        return ThresholdState::FAILED;
     } // no default case, so the compiler can warn about missing cases
 
     return prev_state;
