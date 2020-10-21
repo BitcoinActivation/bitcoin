@@ -1217,7 +1217,7 @@ static void VBitsSoftForkDescPushBack(UniValue& softforks, const std::string &na
     // Deployments (e.g. testdummy) with timeout value before Jan 1, 2009 are hidden.
     // A timeout value of 0 guarantees a softfork will never be activated.
     // This is used when merging logic to implement a proposed softfork without a specified deployment schedule.
-    if (consensusParams.vDeployments[id].timeoutheight == Consensus::VBitsDeployment::NEVER_ACTIVE) return;
+    if (consensusParams.vDeployments[id].IsNeverActive()) return;
 
     UniValue details(UniValue::VOBJ);
     const ThresholdState thresholdState = VersionBitsTipState(consensusParams, id);

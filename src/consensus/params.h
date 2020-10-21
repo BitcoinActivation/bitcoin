@@ -35,14 +35,25 @@ struct VBitsDeployment {
     /** Constant for timeoutheight very far in the future. */
     static constexpr int64_t NO_TIMEOUT = std::numeric_limits<int64_t>::max();
 
-    /** Special value for startheight indicating that the deployment is always active.
+    /** Indicate that the deployment is always active.
      *  This is useful for testing, as it means tests don't need to deal with the activation
      *  process (which takes at least 3 intervals). Only tests that specifically test the
      *  behaviour during activation cannot use this. */
     static constexpr int64_t ALWAYS_ACTIVE = -1;
-    /** Special value for startheight and timeoutheight (both must be set) indicating that the
-     *  deployment is entirely disabled. */
+    inline void SetAlwaysActive() {
+        startheight = ALWAYS_ACTIVE;
+        timeoutheight = std::numeric_limits<int64_t>::max();
+        lockinontimeout = false;
+    }
+
+    /** Indicate that the deployment is entirely disabled. */
     static constexpr int64_t NEVER_ACTIVE = -2;
+    inline void SetNeverActive() {
+        startheight = timeoutheight = NEVER_ACTIVE;
+        lockinontimeout = false;
+    }
+
+    bool IsNeverActive() const { return timeoutheight <= startheight && !lockinontimeout; }
 };
 
 /**
