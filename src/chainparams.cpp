@@ -446,6 +446,7 @@ public:
     {
         consensus.vDeployments[d].startheight = startheight;
         consensus.vDeployments[d].timeoutheight = timeoutheight;
+        consensus.vDeployments[d].lockinontimeout = false;
     }
     void UpdateActivationParametersFromArgs(const ArgsManager& args);
 };

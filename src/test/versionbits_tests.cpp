@@ -49,14 +49,17 @@ public:
 class TestAlwaysActiveConditionChecker : public TestConditionChecker
 {
 public:
-    int64_t StartHeight() const override { return Consensus::VBitsDeployment::ALWAYS_ACTIVE; }
+    int64_t StartHeight() const override { return 0; }
+    int64_t TimeoutHeight() const override { return 0; }
+    bool LockinOnTimeout() const override { return true; }
 };
 
 class TestNeverActiveConditionChecker : public TestConditionChecker
 {
 public:
-    int64_t StartHeight() const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
-    int64_t TimeoutHeight() const override { return Consensus::VBitsDeployment::NEVER_ACTIVE; }
+    int64_t StartHeight() const override { return 0; }
+    int64_t TimeoutHeight() const override { return 0; }
+    bool LockinOnTimeout() const override { return false; }
 };
 
 #define CHECKERS 6

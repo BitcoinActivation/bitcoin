@@ -9,13 +9,18 @@ template<typename CondFn>
 static ThresholdState BIP8Transitions(ThresholdState prev_state, const CBlockIndex* pindexPrev, int64_t height_start, int64_t height_timeout, bool lockinontimeout, int threshold, int period, CondFn& condition)
 {
     // We track state by previous-block, so the height we should be comparing is +1
-    assert(pindexPrev != nullptr);
-    const int64_t height = pindexPrev->nHeight + 1;
+    const int64_t height = (pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1);
 
     switch (prev_state) {
     case ThresholdState::DEFINED:
         if (height >= height_start) {
-            return ThresholdState::STARTED;
+            if (height >= height_timeout) {
+                return (lockinontimeout ? ThresholdState::ACTIVE : ThresholdState::FAILED);
+            } else if (lockinontimeout && height + period >= height_timeout) {
+                return ThresholdState::MUST_SIGNAL;
+            } else {
+                return ThresholdState::STARTED;
+            }
         }
         return ThresholdState::DEFINED;
 
@@ -60,26 +65,25 @@ static ThresholdState BIP8Transitions(ThresholdState prev_state, const CBlockInd
 
 static bool BIP8Trivial(ThresholdState& state, const CBlockIndex* pindexPrev, int64_t height_start, int64_t height_timeout, bool lockinontimeout, int threshold, int period)
 {
-    // Check if this deployment is always active.
-    if (height_start == Consensus::VBitsDeployment::ALWAYS_ACTIVE) {
-        state = ThresholdState::ACTIVE;
+    // We track state by previous-block, so the height we should be comparing is +1
+    const int64_t height = (pindexPrev == nullptr ? 0 : pindexPrev->nHeight + 1);
+
+    if (height < height_start) {
+        // Optimization: don't recompute down further, as we know every earlier block will be before the start height
+        state = ThresholdState::DEFINED;
+        return true;
+    }
+
+    if (height_start == height_timeout) {
+        // Optimization: deployment is always / never active
+        // Due to failure of previous if, height >= height_timeout
+        state = (lockinontimeout ? ThresholdState::ACTIVE : ThresholdState::FAILED);
         return true;
     }
 
     if (pindexPrev == nullptr) {
-        state = ThresholdState::DEFINED;
-        return true;
-    }
-
-    // Check if this deployment is never active.
-    if (height_start == Consensus::VBitsDeployment::NEVER_ACTIVE && height_timeout == Consensus::VBitsDeployment::NEVER_ACTIVE ) {
-        state = ThresholdState::FAILED;
-        return true;
-    }
-
-    if (pindexPrev->nHeight + 1 < height_start) {
-        // Optimization: don't recompute down further, as we know every earlier block will be before the start height
-        state = ThresholdState::DEFINED;
+        auto dummy = [](const CBlockIndex*) { return false; };
+        state = BIP8Transitions(ThresholdState::DEFINED, nullptr, height_start, height_timeout, lockinontimeout, threshold, period, dummy);
         return true;
     }
 
@@ -161,15 +165,20 @@ VBitsStats AbstractThresholdConditionChecker::GetStateStatisticsFor(const CBlock
 
 int AbstractThresholdConditionChecker::GetStateSinceHeightFor(const CBlockIndex* pindexPrev, ThresholdConditionCache& cache) const
 {
-    int64_t height_start = StartHeight();
-    if (height_start == Consensus::VBitsDeployment::ALWAYS_ACTIVE) {
+    // In the first period, so state is the same as genesis
+    if (pindexPrev == nullptr || pindexPrev->nHeight < Period()) {
+        return 0;
+    }
+
+    // Always/never active means all blocks have the same state as genesis
+    if (StartHeight() == 0 && TimeoutHeight() == 0) {
         return 0;
     }
 
     const ThresholdState initialState = GetStateFor(pindexPrev, cache);
 
-    // BIP 8 about state DEFINED: "The genesis block is by definition in this state for each deployment."
-    if (initialState == ThresholdState::DEFINED) {
+    // If we're in the same state as genesis anyway, we've always been in that state
+    if (initialState == GetStateFor(nullptr, cache)) {
         return 0;
     }
 

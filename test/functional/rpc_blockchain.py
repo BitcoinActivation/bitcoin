@@ -153,9 +153,9 @@ class BlockchainTest(BitcoinTestFramework):
                 'type': 'bip8',
                 'bip8': {
                     'status': 'active',
-                    'startheight': -1,
-                    'timeoutheight': 0x7fffffffffffffff,
-                    'lockinontimeout': False,
+                    'startheight': 0,
+                    'timeoutheight': 0,
+                    'lockinontimeout': True,
                     'since': 0
                 },
                 'height': 0,

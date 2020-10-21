@@ -39,17 +39,14 @@ struct VBitsDeployment {
      *  This is useful for testing, as it means tests don't need to deal with the activation
      *  process (which takes at least 3 intervals). Only tests that specifically test the
      *  behaviour during activation cannot use this. */
-    static constexpr int64_t ALWAYS_ACTIVE = -1;
     inline void SetAlwaysActive() {
-        startheight = ALWAYS_ACTIVE;
-        timeoutheight = std::numeric_limits<int64_t>::max();
-        lockinontimeout = false;
+        startheight = timeoutheight = 0;
+        lockinontimeout = true;
     }
 
     /** Indicate that the deployment is entirely disabled. */
-    static constexpr int64_t NEVER_ACTIVE = -2;
     inline void SetNeverActive() {
-        startheight = timeoutheight = NEVER_ACTIVE;
+        startheight = timeoutheight = 0;
         lockinontimeout = false;
     }
 
