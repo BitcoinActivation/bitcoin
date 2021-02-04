@@ -442,11 +442,11 @@ public:
     /**
      * Allows modifying the Version Bits regtest parameters.
      */
-    void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t startheight, int64_t timeoutheight)
+    void UpdateVersionBitsParameters(Consensus::DeploymentPos d, int64_t startheight, int64_t timeoutheight, bool lockinontimeout)
     {
         consensus.vDeployments[d].startheight = startheight;
         consensus.vDeployments[d].timeoutheight = timeoutheight;
-        consensus.vDeployments[d].lockinontimeout = false;
+        consensus.vDeployments[d].lockinontimeout = lockinontimeout;
     }
     void UpdateActivationParametersFromArgs(const ArgsManager& args);
 };
@@ -469,22 +469,28 @@ void CRegTestParams::UpdateActivationParametersFromArgs(const ArgsManager& args)
     for (const std::string& strDeployment : args.GetArgs("-vbparams")) {
         std::vector<std::string> vDeploymentParams;
         boost::split(vDeploymentParams, strDeployment, boost::is_any_of(":"));
-        if (vDeploymentParams.size() != 3) {
-            throw std::runtime_error("Version bits parameters malformed, expecting deployment:@startheight:@timeoutheight");
+        if (vDeploymentParams.size() != 4) {
+            throw std::runtime_error("Version bits parameters malformed, expecting deployment:@startheight:@timeoutheight:lockinontimeout");
         }
         int64_t startheight = 0, timeoutheight = 0;
+        bool lockinontimeout = false;
         if (vDeploymentParams[1].empty() || vDeploymentParams[1].front() != '@' || !ParseInt64(vDeploymentParams[1].substr(1), &startheight)) {
             throw std::runtime_error(strprintf("Invalid startheight (%s)", vDeploymentParams[1]));
         }
         if (vDeploymentParams[2].empty() || vDeploymentParams[2].front() != '@' || !ParseInt64(vDeploymentParams[2].substr(1), &timeoutheight)) {
             throw std::runtime_error(strprintf("Invalid timeoutheight (%s)", vDeploymentParams[2]));
         }
+        if (vDeploymentParams[3].size() != 1 || (vDeploymentParams[3].front() != '0' && vDeploymentParams[3].front() != '1')) {
+            throw std::runtime_error(strprintf("Invalid lockinontimeout (%s)", vDeploymentParams[3]));
+        } else {
+            lockinontimeout = (vDeploymentParams[3].front() == '1');
+        }
         bool found = false;
         for (int j=0; j < (int)Consensus::MAX_VERSION_BITS_DEPLOYMENTS; ++j) {
             if (vDeploymentParams[0] == VersionBitsDeploymentInfo[j].name) {
-                UpdateVersionBitsParameters(Consensus::DeploymentPos(j), startheight, timeoutheight);
+                UpdateVersionBitsParameters(Consensus::DeploymentPos(j), startheight, timeoutheight, lockinontimeout);
                 found = true;
-                LogPrintf("Setting version bits activation parameters for %s to startheight=%ld, timeoutheight=%ld\n", vDeploymentParams[0], startheight, timeoutheight);
+                LogPrintf("Setting version bits activation parameters for %s to startheight=%ld, timeoutheight=%ld, lockinontimeout=%d\n", vDeploymentParams[0], startheight, timeoutheight, lockinontimeout);
                 break;
             }
         }

@@ -250,7 +250,7 @@ BOOST_AUTO_TEST_CASE(versionbits_computeblockversion)
 {
     // Check that ComputeBlockVersion will set the appropriate bit correctly
     const auto period = CreateChainParams(*m_node.args, CBaseChainParams::REGTEST)->GetConsensus().nMinerConfirmationWindow;
-    gArgs.ForceSetArg("-vbparams", strprintf("testdummy:@%s:@%s", period, period * 2));
+    gArgs.ForceSetArg("-vbparams", strprintf("testdummy:@%s:@%s:0", period, period * 2));
     const auto chainParams = CreateChainParams(*m_node.args, CBaseChainParams::REGTEST);
     const Consensus::Params &mainnetParams = chainParams->GetConsensus();
 
