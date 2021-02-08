@@ -90,6 +90,7 @@ BASE_SCRIPTS = [
     'wallet_hd.py --descriptors',
     'wallet_backup.py',
     'wallet_backup.py --descriptors',
+    'feature_bip8.py',
     # vv Tests less than 5m vv
     'mining_getblocktemplate_longpoll.py',
     'feature_maxuploadtarget.py',
